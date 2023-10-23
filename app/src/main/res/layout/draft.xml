@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_margin="8dp"
+    app:cardElevation="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/textViewTrainId"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawablePadding="8dp"
+            android:text="Train ID: 123"
+            tools:ignore="HardcodedText" />
+
+        <TextView
+            android:id="@+id/textViewTimestamp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawablePadding="8dp"
+            android:text="Received packet time: 12:34:56"
+            app:drawableLeftCompat="@drawable/recieved"
+            tools:ignore="HardcodedText" />
+
+
+        <TextView
+            android:id="@+id/textViewDistance"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawablePadding="8dp"
+            android:text="Distance: 123.4 km"
+            app:drawableLeftCompat="@drawable/distance"
+            tools:ignore="HardcodedText" />
+
+        <TextView
+            android:id="@+id/textViewETA"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawablePadding="8dp"
+            android:text="ETA: 12 minutes"
+            app:drawableLeftCompat="@drawable/timeofarrival"
+            tools:ignore="HardcodedText" />
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>
