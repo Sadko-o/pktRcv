@@ -128,9 +128,8 @@ private fun showAlert(title: String, message: String) {
         }
 
         updateUI()
-        playNotificationSound()
-        vibrateDevice()
     }
+
 
     private suspend fun showWifiError() {
         withContext(Dispatchers.Main) {
@@ -146,28 +145,31 @@ private fun showAlert(title: String, message: String) {
 
     private suspend fun updateUI() {
         withContext(Dispatchers.Main) {
-            when (packetsList.size) {
-                1 -> {
-                    updateCardData(binding.firstCardView, packetsList[0])
-                    binding.firstCardView.visibility = View.VISIBLE
-                }
-                2 -> {
-                    updateCardData(binding.firstCardView, packetsList[0])
-                    updateCardData(binding.secondCardView, packetsList[1])
-                    binding.firstCardView.visibility = View.VISIBLE
-                    binding.secondCardView.visibility = View.VISIBLE
-                }
-                3 -> {
-                    updateCardData(binding.firstCardView, packetsList[0])
-                    updateCardData(binding.secondCardView, packetsList[1])
-                    updateCardData(binding.thirdCardView, packetsList[2])
-                    binding.firstCardView.visibility = View.VISIBLE
-                    binding.secondCardView.visibility = View.VISIBLE
-                    binding.thirdCardView.visibility = View.VISIBLE
-                }
+            binding.firstCardContainer.removeAllViews()
+
+            for (packet in packetsList) {
+                val packetBinding = inflatePacketLayout()
+                populatePacketView(packetBinding, packet)
+                binding.firstCardContainer.addView(packetBinding.root)
             }
         }
     }
+
+
+
+    private fun inflatePacketLayout(): com.example.pktrcv.databinding.PacketLayoutBinding {
+        return com.example.pktrcv.databinding.PacketLayoutBinding.inflate(layoutInflater, binding.firstCardContainer, false)
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun populatePacketView(packetBinding: com.example.pktrcv.databinding.PacketLayoutBinding, packet: PacketData) {
+        packetBinding.textViewTrainId.text = "Train ID: ${packet.trainId}"
+        packetBinding.textViewTimestamp.text = "Received packet time: ${packet.timestamp}"
+        packetBinding.textViewDistance.text = "Distance: ${packet.distance} km"
+        packetBinding.textViewETA.text = "ETA: ${packet.time} minutes"
+    }
+
+
 
     @SuppressLint("SetTextI18n")
     private fun updateCardData(cardView: CardView, packet: PacketData) {
