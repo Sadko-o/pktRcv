@@ -10,12 +10,10 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
-import android.view.View
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.pktrcv.databinding.ActivityMainBinding
+import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -25,14 +23,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.ByteArrayOutputStream
 import java.io.InputStreamReader
-import java.io.PrintWriter
-import java.lang.System.out
 import java.net.Socket
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.reflect.typeOf
+
 
 @Suppress("DEPRECATION")
 class MainActivity : AppCompatActivity() {
@@ -60,73 +57,100 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun isConnectedToWifi(wifiManager: WifiManager): Boolean {
+//        Toast.makeText(this, "isConnectedWifi", Toast.LENGTH_SHORT).show()
+        return wifiManager.isWifiEnabled && wifiManager.connectionInfo.networkId != -1
+    }
+
+    private var socket: Socket? = null
+    private var reader: BufferedReader? = null
+
     private fun listenForData() {
         coroutineScope.launch {
-            while (isActive) {
-                val wifiManager = getSystemService(Context.WIFI_SERVICE) as WifiManager
-                when {
+            try {
+                val ipAddress = "192.168.4.1"
+                val port = 8000
+                socket = Socket(ipAddress, port)
+                reader = BufferedReader(InputStreamReader(socket?.getInputStream(), "UTF-8"))
+            } catch (e: Exception) {
+                showError("Error connecting to socket: ${e.message}")
+                socket = null
+                reader = null
+                delay(3000)
+                listenForData()
+                return@launch
+            }
 
-                    isConnectedToWifi(wifiManager) -> tryReceivingData()
-                    else -> showWifiError()
+            while (isActive) {
+                if (socket == null || reader == null) {
+                    showError("Socket or reader is null. Reconnecting...")
+                    delay(3000)
+                    listenForData()
+                    return@launch
                 }
+
+                tryReceivingData()
                 delay(3000)
             }
         }
     }
 
-    private fun isConnectedToWifi(wifiManager: WifiManager): Boolean {
-        Toast.makeText(this, "isConnectedWifi", Toast.LENGTH_SHORT).show()
-        return wifiManager.isWifiEnabled && wifiManager.connectionInfo.networkId != -1
-    }
-
     private suspend fun tryReceivingData() {
         try {
-            val ipAddress = "192.168.4.1"
-            val port = 8000
             val receivedData: String? = withContext(Dispatchers.IO) {
-                val socket = Socket(ipAddress, port)
-                val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
-                val data = reader.readLine()
-                socket.close()
-                data
+                val stringBuilder = StringBuilder()
+                var char: Int = reader?.read() ?: -1
+                while (char != -1 && char.toChar() != '\n') {
+                    stringBuilder.append(char.toChar())
+                    char = reader?.read() ?: -1
+                }
+                if (stringBuilder.isNotEmpty()) stringBuilder.toString() else null
             }
 
-            withContext(Dispatchers.Main) {
-                Toast.makeText(this@MainActivity, receivedData, Toast.LENGTH_SHORT).show()
-                handleReceivedData(receivedData ?: "")
+            if (receivedData == null) {
+                showError("Received null data. Reconnecting...")
+                socket = null
+                reader = null
+                delay(3000)
+
+                listenForData()
+                return
             }
+
+            handleReceivedData(receivedData)
         } catch (e: Exception) {
-            Toast.makeText(this, "tryReceivedData", Toast.LENGTH_SHORT).show();
             showError(e.message ?: "Unknown Error")
         }
     }
 
 
+
+
     private suspend fun handleReceivedData(data: String) {
-        try {
-            val jsonObject = JSONObject(data)
-            val packet = PacketData(
-                distance = jsonObject.getDouble("distance").toFloat(),
-                time = jsonObject.getInt("time"),
-                trainId = jsonObject.getInt("train_id"),
-                direction = jsonObject.getString("direction").first(),
-                timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-            )
-            packetsList.add(packet)
+        showAlert("ReceivedData",data)
+        val fixedData = data.replace("}{", "}\n{")
+        val jsonObjects = fixedData.split("\n")
+        for (jsonObjectStr in jsonObjects) {
+            showAlert("jsonObjectStr",jsonObjectStr)
+            try {
 
-            while (packetsList.size > 3) {
-                packetsList.removeAt(0)
+                val gson = Gson()
+                val packet = gson.fromJson(jsonObjectStr, PacketData::class.java)
+                packet.timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+                packetsList.add(packet)
+                while (packetsList.size > 3) {
+                    packetsList.removeAt(0)
+                }
+                updateUI()
+                withContext(Dispatchers.Main) {
+                    playNotificationSound()
+                    vibrateDevice()
+                }
+            } catch (e: Exception) {
+                showError("Error parsing data: ${e.message}")
             }
-
-            showAlert("received", packet.toString())
-            updateUI()
-            withContext(Dispatchers.Main) {
-                playNotificationSound()
-                vibrateDevice()
-            }
-        } catch (e: Exception) {
-            showError("Error parsing data: ${e.message}")
         }
+
     }
 
     private suspend fun showWifiError() {
@@ -143,37 +167,19 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun updateUI() {
         withContext(Dispatchers.Main) {
-            val containers = listOf(
-                binding.firstCardContainer,
-            )
-            for (index in packetsList.indices) {
-                populateLinearLayout(containers[index], packetsList[index], index+1)
+            if (packetsList.isNotEmpty()) {
+                populateLinearLayout(packetsList.last())
             }
         }
     }
 
-    @SuppressLint("SetTextI18n", "DiscouragedApi")
-    private fun populateLinearLayout(linearLayout: LinearLayout, packet: PacketData, packetNumber: Int) {
-        val context = linearLayout.context
-        val textViewTrainId = linearLayout.findViewById<TextView>(
-            context.resources.getIdentifier("textViewTrainId$packetNumber", "id", context.packageName)
-        )
-        val textViewTimestamp = linearLayout.findViewById<TextView>(
-            context.resources.getIdentifier("textViewTimestamp$packetNumber", "id", context.packageName)
-        )
-        val textViewDistance = linearLayout.findViewById<TextView>(
-            context.resources.getIdentifier("textViewDistance$packetNumber", "id", context.packageName)
-        )
-        val textViewETA = linearLayout.findViewById<TextView>(
-            context.resources.getIdentifier("textViewETA$packetNumber", "id", context.packageName)
-        )
-
-        textViewTrainId.text = "Train ID: ${packet.trainId}"
-        textViewTimestamp.text = "Received packet time: ${packet.timestamp}"
-        textViewDistance.text = "Distance: ${packet.distance} km"
-        textViewETA.text = "ETA: ${packet.time} minutes"
+    @SuppressLint("SetTextI18n")
+    private fun populateLinearLayout(packet: PacketData) {
+        binding.textViewTrainId.text = "Train ID: ${packet.trainId}"
+        binding.textViewTimestamp.text = "Received packet time: ${packet.timestamp}"
+        binding.textViewDistance.text = "Distance: ${packet.distance} km"
+        binding.textViewETA.text = "ETA: ${packet.time} minutes"
     }
-
 
     private fun playNotificationSound() {
         try {
@@ -192,7 +198,7 @@ class MainActivity : AppCompatActivity() {
                 vibrator.vibrate(VibrationEffect.createOneShot(2000, VibrationEffect.DEFAULT_AMPLITUDE))
             } else {
                 @Suppress("DEPRECATION")
-                vibrator.vibrate(5000)
+                vibrator.vibrate(3000)
             }
         }
     }
