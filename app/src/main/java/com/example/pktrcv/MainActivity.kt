@@ -43,9 +43,6 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         listenForData()
-
-//        binding.btnEnglish.setOnClickListener { this.switchLanguage(languageCode = "en") }
-//        binding.btnRussian.setOnClickListener { this.switchLanguage(languageCode = "ru") }
     }
 
     private fun showAlert(title: String, message: String) {
@@ -65,26 +62,6 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-
-//    private fun setLocale(activity: Activity, languageCode: String) {
-//        val locale = Locale(languageCode)
-//        Locale.setDefault(locale)
-//        val resources = activity.resources
-//        val config = resources.configuration
-//        config.setLocale(locale)
-//        resources.updateConfiguration(config, resources.displayMetrics)
-//
-//        languageChanged = true
-//    }
-//    private suspend fun switchLanguage(languageCode: String) {
-//        val sharedPreferences = getSharedPreferences("AppSettingsPrefs", Context.MODE_PRIVATE)
-//        val editor = sharedPreferences.edit()
-//        editor.putString("Language", languageCode)
-//        editor.apply()
-//
-//        setLocale(this, languageCode)
-//        updateUI()
-//    }
 
 
 
@@ -108,6 +85,11 @@ class MainActivity : AppCompatActivity() {
             }
 
             while (isActive) {
+                val wifiManager = getSystemService(Context.WIFI_SERVICE) as WifiManager
+                when {
+                    !isConnectedToWifi(wifiManager) ->  showWifiError()
+                    else -> continue
+                }
                 if (socket == null || reader == null) {
                     showError("Socket or reader is null. Reconnecting...")
                     delay(3000)
@@ -198,12 +180,6 @@ class MainActivity : AppCompatActivity() {
             binding.packetContainer.removeAllViews()
             packetsList.takeLast(3).asReversed().forEach { packet ->
                 val packetItemBinding = PacketItemBinding.inflate(layoutInflater, binding.packetContainer, false)
-
-//                packetItemBinding.textViewTrainId.text = getString(R.string.train_id, packet.train_id)
-//                packetItemBinding.textViewTimestamp.text = getString(R.string.received_packet_time, packet.timestamp)
-//                packetItemBinding.textViewDistance.text = getString(R.string.distance, packet.distance)
-//                packetItemBinding.textViewETA.text = getString(R.string.eta, packet.time)
-//                packetItemBinding.textViewDirection.text = getString(R.string.direction, packet.direction)
 
                 packetItemBinding.textViewTrainId.text = "Train ID/Номер поезда: ${packet.train_id}"
                 packetItemBinding.textViewTimestamp.text = "Received packet time/Время получения данных: ${packet.timestamp}"
