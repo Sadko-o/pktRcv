@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">pktRcv</string>
+    <string name="btnWifiText">Receive via WiFi</string>
+    <string name="no_data_rcv">Ничего не получено</string>
+<!--    <string name="received_packet_time">Получены данные</string>-->
+<!--    <string name="train_id">Номер поезда</string>-->
+    <string name="distance_till_arrival">Дистанция до прибытия</string>
+    <string name="estimated_time_of_arrival">Время до прибытия</string>
+    <string name="switch_language">Сменить язык</string>
+<!--    <string name="train_id_label">Идентификатор поезда: %1$s</string>-->
+
+
+    <string name="train_id">Номер поезда: %1$s</string>
+    <string name="received_packet_time">Время получения данных: %1$s</string>
+    <string name="distance">Расстояние: %1$s км</string>
+    <string name="eta">Время в пути: %1$s минут</string>
+    <string name="direction">Направление: %1$s</string>
+</resources>

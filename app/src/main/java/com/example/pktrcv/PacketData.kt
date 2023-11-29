@@ -1,8 +1,8 @@
 package com.example.pktrcv
 data class PacketData(
-    val distance: Int,
+    val distance: Float,
     val time: Float,
-    val trainId: Int,
+    val train_id: Int,
     val direction: Char,
     var timestamp: String=""
 )

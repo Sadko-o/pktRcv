@@ -1,6 +1,7 @@
 package com.example.pktrcv
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
 import android.media.RingtoneManager
@@ -9,10 +10,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.util.Log
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.pktrcv.databinding.ActivityMainBinding
+import com.example.pktrcv.databinding.PacketItemBinding
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,9 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.io.BufferedReader
-import java.io.ByteArrayOutputStream
 import java.io.InputStreamReader
 import java.net.Socket
 import java.text.SimpleDateFormat
@@ -37,12 +35,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
     private val packetsList = mutableListOf<PacketData>()
+    private var languageChanged = false
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         listenForData()
+
+//        binding.btnEnglish.setOnClickListener { this.switchLanguage(languageCode = "en") }
+//        binding.btnRussian.setOnClickListener { this.switchLanguage(languageCode = "ru") }
     }
 
     private fun showAlert(title: String, message: String) {
@@ -58,9 +61,32 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isConnectedToWifi(wifiManager: WifiManager): Boolean {
-//        Toast.makeText(this, "isConnectedWifi", Toast.LENGTH_SHORT).show()
         return wifiManager.isWifiEnabled && wifiManager.connectionInfo.networkId != -1
     }
+
+
+
+//    private fun setLocale(activity: Activity, languageCode: String) {
+//        val locale = Locale(languageCode)
+//        Locale.setDefault(locale)
+//        val resources = activity.resources
+//        val config = resources.configuration
+//        config.setLocale(locale)
+//        resources.updateConfiguration(config, resources.displayMetrics)
+//
+//        languageChanged = true
+//    }
+//    private suspend fun switchLanguage(languageCode: String) {
+//        val sharedPreferences = getSharedPreferences("AppSettingsPrefs", Context.MODE_PRIVATE)
+//        val editor = sharedPreferences.edit()
+//        editor.putString("Language", languageCode)
+//        editor.apply()
+//
+//        setLocale(this, languageCode)
+//        updateUI()
+//    }
+
+
 
     private var socket: Socket? = null
     private var reader: BufferedReader? = null
@@ -100,11 +126,21 @@ class MainActivity : AppCompatActivity() {
             val receivedData: String? = withContext(Dispatchers.IO) {
                 val stringBuilder = StringBuilder()
                 var char: Int = reader?.read() ?: -1
-                while (char != -1 && char.toChar() != '\n') {
+                var braceCount = 0
+
+                while (char != -1) {
                     stringBuilder.append(char.toChar())
+                    if (char.toChar() == '{') {
+                        braceCount++
+                    } else if (char.toChar() == '}') {
+                        braceCount--
+                        if (braceCount == 0) {
+                            break
+                        }
+                    }
                     char = reader?.read() ?: -1
                 }
-                if (stringBuilder.isNotEmpty()) stringBuilder.toString() else null
+                stringBuilder.toString().takeIf { it.isNotBlank() }
             }
 
             if (receivedData == null) {
@@ -112,46 +148,37 @@ class MainActivity : AppCompatActivity() {
                 socket = null
                 reader = null
                 delay(3000)
-
                 listenForData()
                 return
             }
-
+//            showAlert("receivedData", receivedData)
             handleReceivedData(receivedData)
         } catch (e: Exception) {
             showError(e.message ?: "Unknown Error")
         }
     }
 
+    private suspend fun handleReceivedData(jsonString: String) {
+        try {
+            val gson = Gson()
+            val packet = gson.fromJson(jsonString, PacketData::class.java)
+            packet.timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
-
-
-    private suspend fun handleReceivedData(data: String) {
-        showAlert("ReceivedData",data)
-        val fixedData = data.replace("}{", "}\n{")
-        val jsonObjects = fixedData.split("\n")
-        for (jsonObjectStr in jsonObjects) {
-            showAlert("jsonObjectStr",jsonObjectStr)
-            try {
-
-                val gson = Gson()
-                val packet = gson.fromJson(jsonObjectStr, PacketData::class.java)
-                packet.timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-                packetsList.add(packet)
-                while (packetsList.size > 3) {
-                    packetsList.removeAt(0)
-                }
-                updateUI()
-                withContext(Dispatchers.Main) {
-                    playNotificationSound()
-                    vibrateDevice()
-                }
-            } catch (e: Exception) {
-                showError("Error parsing data: ${e.message}")
+            packetsList.add(packet)
+            while (packetsList.size > 3) {
+                packetsList.removeAt(0)
             }
-        }
 
+            updateUI()
+            withContext(Dispatchers.Main) {
+                playNotificationSound()
+                vibrateDevice()
+            }
+        } catch (e: Exception) {
+            showError("Error parsing data: ${e.message}")
+        }
     }
+
 
     private suspend fun showWifiError() {
         withContext(Dispatchers.Main) {
@@ -165,21 +192,32 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("SetTextI18n", "StringFormatMatches")
     private suspend fun updateUI() {
         withContext(Dispatchers.Main) {
-            if (packetsList.isNotEmpty()) {
-                populateLinearLayout(packetsList.last())
+            binding.packetContainer.removeAllViews()
+            packetsList.takeLast(3).asReversed().forEach { packet ->
+                val packetItemBinding = PacketItemBinding.inflate(layoutInflater, binding.packetContainer, false)
+
+//                packetItemBinding.textViewTrainId.text = getString(R.string.train_id, packet.train_id)
+//                packetItemBinding.textViewTimestamp.text = getString(R.string.received_packet_time, packet.timestamp)
+//                packetItemBinding.textViewDistance.text = getString(R.string.distance, packet.distance)
+//                packetItemBinding.textViewETA.text = getString(R.string.eta, packet.time)
+//                packetItemBinding.textViewDirection.text = getString(R.string.direction, packet.direction)
+
+                packetItemBinding.textViewTrainId.text = "Train ID/Номер поезда: ${packet.train_id}"
+                packetItemBinding.textViewTimestamp.text = "Received packet time/Время получения данных: ${packet.timestamp}"
+                packetItemBinding.textViewDistance.text = "Distance/Расстояние  : ${packet.distance} km"
+                packetItemBinding.textViewETA.text = "ETA/Время в пути: ${packet.time} minutes"
+                packetItemBinding.textViewDirection.text = "Direction/Направление: ${packet.direction}"
+
+
+
+                binding.packetContainer.addView(packetItemBinding.root)
             }
         }
     }
 
-    @SuppressLint("SetTextI18n")
-    private fun populateLinearLayout(packet: PacketData) {
-        binding.textViewTrainId.text = "Train ID: ${packet.trainId}"
-        binding.textViewTimestamp.text = "Received packet time: ${packet.timestamp}"
-        binding.textViewDistance.text = "Distance: ${packet.distance} km"
-        binding.textViewETA.text = "ETA: ${packet.time} minutes"
-    }
 
     private fun playNotificationSound() {
         try {
@@ -195,10 +233,10 @@ class MainActivity : AppCompatActivity() {
         val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator?
         if (vibrator?.hasVibrator() == true) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(2000, VibrationEffect.DEFAULT_AMPLITUDE))
+                vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
             } else {
                 @Suppress("DEPRECATION")
-                vibrator.vibrate(3000)
+                vibrator.vibrate(300)
             }
         }
     }

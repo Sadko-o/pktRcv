@@ -2,8 +2,16 @@
     <string name="app_name">pktRcv</string>
     <string name="btnWifiText">Receive via WiFi</string>
     <string name="no_data_rcv">No Received Data Here</string>
-    <string name="received_packet_time">received packet time</string>
-    <string name="train_id">train id</string>
+<!--    <string name="received_packet_time">received packet time</string>-->
+<!--    <string name="train_id">train id</string>-->
     <string name="distance_till_arrival">distance till arrival</string>
     <string name="estimated_time_of_arrival">estimated time of arrival</string>
+    <string name="switch_language">Switch Language</string>
+
+    <string name="train_id">Train ID: %1$s</string>
+    <string name="received_packet_time">Received packet time: %1$s</string>
+    <string name="distance">Distance: %1$s km</string>
+    <string name="eta">ETA: %1$s minutes</string>
+    <string name="direction">Direction: %1$s</string>
+
 </resources>
