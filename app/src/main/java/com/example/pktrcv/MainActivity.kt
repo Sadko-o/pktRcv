@@ -35,7 +35,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
     private val packetsList = mutableListOf<PacketData>()
-    private var languageChanged = false
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -133,7 +132,6 @@ class MainActivity : AppCompatActivity() {
                 listenForData()
                 return
             }
-//            showAlert("receivedData", receivedData)
             handleReceivedData(receivedData)
         } catch (e: Exception) {
             showError(e.message ?: "Unknown Error")
